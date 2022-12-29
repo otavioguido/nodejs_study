@@ -1,22 +1,43 @@
-import { createServer } from "http";
-import { readFile } from "fs/promises";
-import { EventEmitter } from 'node:events';
+const http = require(`http`);
+const fs = require(`fs/promises`);
+const events = require(`node:events`);
+const mysql = require('mysql');
 
-const emitter = new EventEmitter();
+const connection = mysql.createConnection({
+    host: 'localhost',
+    user: 'me',
+    password: 'secret',
+    database: 'my_db'
+});
+
+/*
+TODO: catch path param
+TODO: manipulate request queries
+TODO: set response header
+TODO: set response body
+TODO: db manipulation
+*/
+
+const emitter = new events.EventEmitter();
 
 emitter.on(`readFile`, async (response, htmlFile) => {
     try {
-        response.end(await readFile(htmlFile, `utf-8`));
-    } catch {
+        response.end(await fs.readFile(htmlFile, `utf-8`));
+    } catch (err) {
+        console.error(err);
         response.statusCode = 500;
         response.end(`Failed to load the page`);
     }
-})
+});
 
-createServer(async (request, response) => {
+http.createServer(async (request, response) => {
 
     const myURL = new URL(request.url, `http://${request.host}`);
-    // response.writeHead(200, { 'Content-Type': 'text/html' });    
+    connection.connect((error) => {
+        if (error) {
+            throw error;
+        }
+    });
 
     switch (myURL.pathname) {
         case `/test`:
@@ -28,5 +49,7 @@ createServer(async (request, response) => {
         default:
             emitter.emit(`readFile`, response, `./pages/home.html`)
             break;
-    }    
+    }
+    
+    connection.end();
 }).listen(3000);
